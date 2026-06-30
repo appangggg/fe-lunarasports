@@ -45,6 +45,12 @@ export default function BookingModal({
   // =========================================
   const [courtsList, setCourtsList] = useState<any[]>([]);
   const [isLoadingCourts, setIsLoadingCourts] = useState(true);
+  
+  // Reviews state
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
+
   const [selectedCourtType, setSelectedCourtType] = useState<string>("");
   const [selectedCourt, setSelectedCourt] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<number>(0);
@@ -107,6 +113,27 @@ export default function BookingModal({
     // (misal: jam 15:30 sekarang → slot 15:00 dan sebelumnya di-disable)
     return slotHour <= currentHour;
   };
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!lapangan?.id) return;
+      setIsLoadingReviews(true);
+      try {
+        const response = await api.get(`/venues/${lapangan.id}/reviews`);
+        if (response.success) {
+          setReviews(response.data);
+        }
+      } catch (error) {
+        console.error("Gagal menarik data review venue:", error);
+      } finally {
+        setIsLoadingReviews(false);
+      }
+    };
+    
+    if (isOpen) {
+      fetchReviews();
+    }
+  }, [isOpen, lapangan]);
 
   useEffect(() => {
     const fetchCourts = async () => {
@@ -261,7 +288,7 @@ export default function BookingModal({
       ></div>
 
       <div className="relative bg-white rounded-3xl w-full max-w-5xl h-[90vh] md:h-[85vh] overflow-hidden shadow-2xl flex flex-col md:flex-row animate-slide-up">
-        <button
+        <button type="button"
           onClick={onClose}
           className="absolute top-4 right-4 z-20 p-2 bg-black/10 hover:bg-black/30 text-white md:text-[#111111] md:bg-[#F8F8F8] md:hover:bg-[#EEEEEE] rounded-full backdrop-blur-md transition-colors"
         >
@@ -366,7 +393,7 @@ export default function BookingModal({
                     </ul>
 
                     {lapangan.peraturan.length > 2 && (
-                      <button
+                      <button type="button"
                         onClick={() => setShowAllRules(!showAllRules)}
                         className="mt-3 flex items-center gap-1 font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-100/50 hover:bg-blue-100 px-3 py-1.5 rounded-lg w-full justify-center"
                       >
@@ -391,6 +418,78 @@ export default function BookingModal({
                 )}
               </div>
             </div>
+
+            {/* REVIEWS SECTION */}
+            <div className="p-6 pt-0 border-t border-[#EEEEEE] mt-2">
+              <div className="flex items-center justify-between mb-4 mt-6">
+                <h3 className="font-bold text-[#111111]">Ulasan Pengguna</h3>
+                <span className="text-xs font-bold bg-[#F8F8F8] text-[#888888] px-2 py-1 rounded-md">
+                  {reviews.length} Ulasan
+                </span>
+              </div>
+
+              {isLoadingReviews ? (
+                <div className="animate-pulse space-y-4">
+                  {[1, 2].map((n) => (
+                    <div key={n} className="flex gap-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full shrink-0"></div>
+                      <div className="space-y-2 flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                        <div className="h-3 bg-gray-200 rounded w-full"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : reviews.length > 0 ? (
+                <div className="space-y-4">
+                  {(showReviews ? reviews : reviews.slice(0, 3)).map((review: any) => (
+                    <div key={review.id} className="bg-white p-4 rounded-xl border border-[#EEEEEE] shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {review.user?.avatar ? (
+                            <img src={review.user.avatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-[#EEEEEE] flex items-center justify-center">
+                              <span className="font-bold text-xs text-[#888888]">{review.user?.name?.charAt(0) || 'U'}</span>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-bold text-[#111111]">{review.user?.name || 'Anonim'}</p>
+                            <p className="text-[10px] text-[#AAAAAA]">{new Date(review.created_at).toLocaleDateString('id-ID')}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 bg-[#FFF9E6] px-2 py-1 rounded-md">
+                          <Star className="w-3.5 h-3.5 text-[#F2C94C] fill-[#F2C94C]" />
+                          <span className="text-xs font-bold text-[#D4A017]">{review.rating}</span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-[#555555] leading-relaxed">"{review.comment}"</p>
+                    </div>
+                  ))}
+
+                  {reviews.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowReviews(!showReviews)}
+                      className="w-full py-2.5 mt-2 bg-[#F8F8F8] hover:bg-[#EEEEEE] text-[#555555] font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                      {showReviews ? (
+                        <><ChevronUp className="w-4 h-4" /> Sembunyikan</>
+                      ) : (
+                        <><ChevronDown className="w-4 h-4" /> Lihat Semua Ulasan</>
+                      )}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6 bg-white rounded-xl border border-[#EEEEEE]">
+                  <MessageCircle className="w-8 h-8 text-[#DDDDDD] mx-auto mb-2" />
+                  <p className="text-sm text-[#888888]">Belum ada ulasan untuk venue ini.</p>
+                </div>
+              )}
+            </div>
+            {/* END REVIEWS SECTION */}
+
           </div>
         </div>
 
@@ -421,9 +520,16 @@ export default function BookingModal({
                   {Array.from(new Set(courtsList.map(c => c.type || "Futsal"))).length > 1 && (
                     <div className="flex items-center gap-2 mb-4 overflow-x-auto hide-scrollbar pb-2">
                       {Array.from(new Set(courtsList.map(c => c.type || "Futsal"))).map((type: any) => (
-                        <button
+                        <button type="button"
                           key={type}
-                          onClick={() => setSelectedCourtType(type)}
+                          onClick={() => {
+                            setSelectedCourtType(type);
+                            const firstCourtOfType = courtsList.find((c: any) => (c.type || "Futsal") === type);
+                            if (firstCourtOfType) {
+                              setSelectedCourt(firstCourtOfType);
+                              setSelectedTimes([]);
+                            }
+                          }}
                           className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${
                             selectedCourtType === type
                               ? "bg-[#111111] text-white"
@@ -440,7 +546,7 @@ export default function BookingModal({
                     {courtsList
                       .filter((court: any) => (court.type || "Futsal") === selectedCourtType)
                       .map((court: any) => (
-                      <button
+                      <button type="button"
                         key={court.id}
                         onClick={() => {
                           setSelectedCourt(court);
@@ -477,7 +583,7 @@ export default function BookingModal({
               </h3>
               <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
                 {dates.map((d, idx) => (
-                  <button
+                  <button type="button"
                     key={idx}
                     onClick={() => {
                       setSelectedDate(idx);
@@ -527,7 +633,7 @@ export default function BookingModal({
                   const isPassed   = isTimePassed(selectedDate, time);
 
                   return (
-                    <button
+                    <button type="button"
                       key={idx}
                       disabled={isBooked || isPassed}
                       onClick={() => toggleTimeSlot(time, isPassed, isBooked)}
@@ -630,7 +736,7 @@ export default function BookingModal({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <button
+                          <button type="button"
                             onClick={() => updateAddon(product.id, -1)}
                             disabled={qty === 0}
                             className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
@@ -644,7 +750,7 @@ export default function BookingModal({
                           <span className="w-5 text-center text-sm font-black text-[#111111]">
                             {qty}
                           </span>
-                          <button
+                          <button type="button"
                             onClick={() => updateAddon(product.id, 1)}
                             disabled={qty >= (product.stock ?? 99)}
                             className="w-7 h-7 rounded-full bg-[#2FA084] text-white hover:bg-[#27896F] flex items-center justify-center transition-colors"
@@ -693,7 +799,7 @@ export default function BookingModal({
                 )}
               </div>
 
-              <button
+              <button type="button"
                 onClick={handleCheckout}
                 disabled={selectedTimes.length === 0}
                 className={`flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-xl font-bold transition-all shadow-md ${
@@ -713,4 +819,3 @@ export default function BookingModal({
     </div>
   );
 }
-
