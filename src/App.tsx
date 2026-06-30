@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import MainLayout from './components/MainLayout';
@@ -19,12 +20,12 @@ import GoogleSuccess from './pages/GoogleSuccess';
 // IMPORT HALAMAN OTP BARU
 import OtpPage from './pages/OtpPage';
 import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
-const ProtectedRoute = ({ children }: { children: any }) => {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const token = localStorage.getItem('token');
   if (!token) return <Navigate to="/welcome" replace />;
   return children;
 };
-const AdminRoute = ({ children }: { children: any }) => {
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const token = localStorage.getItem('token');
   const userStorage = localStorage.getItem('user');
   const user = userStorage ? JSON.parse(userStorage) : null;
@@ -38,7 +39,7 @@ const AdminRoute = ({ children }: { children: any }) => {
   return children;
 };
 
-const SuperAdminRoute = ({ children }: { children: any }) => {
+const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   const token = localStorage.getItem('token');
   const userStorage = localStorage.getItem('user');
   const user = userStorage ? JSON.parse(userStorage) : null;
