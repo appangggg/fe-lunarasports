@@ -10,8 +10,8 @@ export interface CartItem {
 
 interface CartStore {
   items: CartItem[];
-  addToCart: (product: any) => void;
-  decreaseQuantity: (productId: number) => void; // Fungsi Baru
+  addToCart: (product: Omit<CartItem, 'quantity'>) => void;
+  decreaseQuantity: (productId: number) => void;
   removeFromCart: (productId: number) => void;
   clearCart: () => void;
   getTotalItems: () => number;
@@ -20,40 +20,64 @@ interface CartStore {
 
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
-  
-  addToCart: (product) => set((state) => {
-    const existingItem = state.items.find((item) => item.id === product.id);
-    if (existingItem) {
+
+  addToCart: (product) =>
+    set((state) => {
+      const existingItem = state.items.find(
+        (item) => item.id === product.id
+      );
+
+      if (existingItem) {
+        return {
+          items: state.items.map((item) =>
+            item.id === product.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          ),
+        };
+      }
+
       return {
-        items: state.items.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        ),
+        items: [...state.items, { ...product, quantity: 1 }],
       };
-    }
-    return { items: [...state.items, { ...product, quantity: 1 }] };
-  }),
+    }),
 
   // Fungsi mengurangi jumlah barang
-  decreaseQuantity: (productId) => set((state) => {
-    const existingItem = state.items.find((item) => item.id === productId);
-    if (existingItem && existingItem.quantity > 1) {
-      return {
-        items: state.items.map((item) =>
-          item.id === productId ? { ...item, quantity: item.quantity - 1 } : item
-        ),
-      };
-    }
-    // Jika qty tinggal 1 dan dikurangi lagi, hapus barang dari keranjang
-    return { items: state.items.filter((item) => item.id !== productId) };
-  }),
+  decreaseQuantity: (productId) =>
+    set((state) => {
+      const existingItem = state.items.find(
+        (item) => item.id === productId
+      );
 
-  removeFromCart: (productId) => set((state) => ({
-    items: state.items.filter((item) => item.id !== productId),
-  })),
+      if (existingItem && existingItem.quantity > 1) {
+        return {
+          items: state.items.map((item) =>
+            item.id === productId
+              ? { ...item, quantity: item.quantity - 1 }
+              : item
+          ),
+        };
+      }
+
+      // Jika quantity tinggal 1, hapus dari keranjang
+      return {
+        items: state.items.filter((item) => item.id !== productId),
+      };
+    }),
+
+  removeFromCart: (productId) =>
+    set((state) => ({
+      items: state.items.filter((item) => item.id !== productId),
+    })),
 
   clearCart: () => set({ items: [] }),
 
-  getTotalItems: () => get().items.reduce((total, item) => total + item.quantity, 0),
+  getTotalItems: () =>
+    get().items.reduce((total, item) => total + item.quantity, 0),
 
-  getTotalPrice: () => get().items.reduce((total, item) => total + (item.price * item.quantity), 0),
+  getTotalPrice: () =>
+    get().items.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    ),
 }));

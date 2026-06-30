@@ -12,7 +12,7 @@ const defaultConfig = () => ({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     // Otomatis pasang token jika ada
-    ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
+    ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
   }
 });
 
@@ -47,7 +47,7 @@ export const api = {
   },
 
   // 2. POST Request
-  post: async (endpoint: string, data: any) => {
+  post: async (endpoint: string, data: unknown) => {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'POST',
       ...defaultConfig(),
@@ -57,11 +57,36 @@ export const api = {
   },
 
   // 3. PUT Request (Update)
-  put: async (endpoint: string, data: any) => {
+  put: async (endpoint: string, data: unknown) => {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'PUT',
       ...defaultConfig(),
       body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  // 3b. POST FormData Request (Upload File)
+  postForm: async (endpoint: string, formData: FormData) => {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
+      },
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
+  // 3c. PUT FormData Request (Upload File)
+  // Laravel menerima upload file melalui POST dengan _method=PUT
+  putForm: async (endpoint: string, formData: FormData) => {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
+      },
+      body: formData,
     });
     return handleResponse(response);
   },
@@ -75,8 +100,8 @@ export const api = {
     return handleResponse(response);
   },
 
-  // 5. PATCH Request (Partial update)
-  patch: async (endpoint: string, data?: any) => {
+  // 5. PATCH Request (Partial Update)
+  patch: async (endpoint: string, data?: unknown) => {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'PATCH',
       ...defaultConfig(),
