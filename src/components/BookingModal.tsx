@@ -11,8 +11,9 @@ import {
   ChevronUp,
   ChevronRight,
   ShoppingBag,
-  Plus,
   Minus,
+  MessageCircle,
+  Plus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/api";
@@ -44,9 +45,11 @@ export default function BookingModal({
   // =========================================
   const [courtsList, setCourtsList] = useState<any[]>([]);
   const [isLoadingCourts, setIsLoadingCourts] = useState(true);
+  const [selectedCourtType, setSelectedCourtType] = useState<string>("");
   const [selectedCourt, setSelectedCourt] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<number>(0);
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [showAllRules, setShowAllRules] = useState(false);
 
   // =========================================
@@ -111,21 +114,22 @@ export default function BookingModal({
       try {
         const response = await api.get("/courts");
         if (response.success && response.data.length > 0) {
-          setCourtsList(response.data);
-          setSelectedCourt(response.data[0]);
-
-          // Ambil jam operasional dari venue yang terkait lapangan pertama
-          // Data venue tersedia melalui relasi: court.venue (di-eager load di backend)
-          const firstCourt = response.data[0];
-          if (firstCourt.venue) {
-            const open  = firstCourt.venue.open_time  ?? '08:00';
-            const close = firstCourt.venue.close_time ?? '23:00';
-            setVenueOpenTime(open.slice(0, 5));   // Trim detik jika ada
-            setVenueCloseTime(close.slice(0, 5));
-          } else if (lapangan?.open_time) {
-            // Fallback: ambil dari prop lapangan langsung jika relasi tidak di-load
-            setVenueOpenTime(lapangan.open_time.slice(0, 5));
-            setVenueCloseTime(lapangan.close_time?.slice(0, 5) ?? '23:00');
+          const venueCourts = response.data.filter((c: any) => c.venue_id === lapangan.id);
+          setCourtsList(venueCourts);
+          if (venueCourts.length > 0) {
+            setSelectedCourt(venueCourts[0]);
+            setSelectedCourtType(venueCourts[0].type || "Futsal");
+            
+            const firstCourt = venueCourts[0];
+            if (firstCourt.venue) {
+              const open  = firstCourt.venue.open_time  ?? '08:00';
+              const close = firstCourt.venue.close_time ?? '23:00';
+              setVenueOpenTime(open.slice(0, 5));
+              setVenueCloseTime(close.slice(0, 5));
+            } else if (lapangan?.open_time) {
+              setVenueOpenTime(lapangan.open_time.slice(0, 5));
+              setVenueCloseTime(lapangan.close_time?.slice(0, 5) ?? '23:00');
+            }
           }
         }
       } catch (error) {
@@ -137,7 +141,7 @@ export default function BookingModal({
 
     const fetchProducts = async () => {
       try {
-        const response = await api.get("/products");
+        const response = await api.get(`/products?venue_id=${lapangan.id}`);
         if (response.success) {
           setProducts(response.data);
         }
@@ -155,6 +159,30 @@ export default function BookingModal({
       setAddons({});
     }
   }, [isOpen, lapangan]);
+
+  // [BUGFIX] useEffect ini HARUS di atas conditional return agar tidak melanggar Rules of Hooks
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (!selectedCourt || !dates[selectedDate]) return;
+      
+      const d = dates[selectedDate].fullDate;
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+
+      try {
+        const response = await api.get(`/courts/${selectedCourt.id}/booked-slots?date=${formattedDate}`);
+        if (response.success) {
+          setBookedSlots(Array.isArray(response.data) ? response.data : []);
+        }
+      } catch (error) {
+        console.error("Gagal menarik data slot terbooking:", error);
+      }
+    };
+    
+    fetchBookedSlots();
+  }, [selectedCourt, selectedDate]);
 
   if (!isOpen || !lapangan || !selectedCourt) return null;
 
@@ -272,7 +300,7 @@ export default function BookingModal({
                 <div className="flex items-center gap-1.5">
                   <Star className="w-5 h-5 text-[#F2C94C] fill-[#F2C94C]" />
                   <span className="font-bold text-[#111111] text-lg">
-                    {lapangan.rating}
+                    {lapangan.rating > 0 ? lapangan.rating : 'Baru'}
                   </span>
                 </div>
               </div>
@@ -285,6 +313,17 @@ export default function BookingModal({
                 </span>
               </div>
             </div>
+
+            {lapangan.phone && (
+              <a
+                href={`https://wa.me/${lapangan.phone.startsWith('0') ? '62' + lapangan.phone.slice(1) : lapangan.phone}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white py-3 rounded-xl font-bold mb-6 transition-colors shadow-sm"
+              >
+                <MessageCircle className="w-5 h-5" /> Hubungi Admin Venue
+              </a>
+            )}
 
             <h3 className="font-bold text-[#111111] mb-3">Fasilitas Lengkap</h3>
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -377,31 +416,54 @@ export default function BookingModal({
                   Mencari lapangan tersedia...
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {courtsList.map((court: any) => (
-                    <button
-                      key={court.id}
-                      onClick={() => {
-                        setSelectedCourt(court);
-                        setSelectedTimes([]);
-                      }}
-                      className={`flex flex-col items-start p-3 rounded-xl border-2 text-left transition-all ${
-                        selectedCourt?.id === court.id
-                          ? "border-[#2FA084] bg-[#F0FDF8] shadow-sm"
-                          : "border-[#EEEEEE] bg-white hover:border-[#CCCCCC]"
-                      }`}
-                    >
-                      <span
-                        className={`font-bold text-sm line-clamp-1 ${selectedCourt?.id === court.id ? "text-[#2FA084]" : "text-[#111111]"}`}
+                <>
+                  {/* TABS KATEGORI LAPANGAN */}
+                  {Array.from(new Set(courtsList.map(c => c.type || "Futsal"))).length > 1 && (
+                    <div className="flex items-center gap-2 mb-4 overflow-x-auto hide-scrollbar pb-2">
+                      {Array.from(new Set(courtsList.map(c => c.type || "Futsal"))).map((type: any) => (
+                        <button
+                          key={type}
+                          onClick={() => setSelectedCourtType(type)}
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${
+                            selectedCourtType === type
+                              ? "bg-[#111111] text-white"
+                              : "bg-[#F8F8F8] text-[#888888] hover:bg-[#EEEEEE]"
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {courtsList
+                      .filter((court: any) => (court.type || "Futsal") === selectedCourtType)
+                      .map((court: any) => (
+                      <button
+                        key={court.id}
+                        onClick={() => {
+                          setSelectedCourt(court);
+                          setSelectedTimes([]);
+                        }}
+                        className={`flex flex-col items-start p-3 rounded-xl border-2 text-left transition-all ${
+                          selectedCourt?.id === court.id
+                            ? "border-[#2FA084] bg-[#F0FDF8] shadow-sm"
+                            : "border-[#EEEEEE] bg-white hover:border-[#CCCCCC]"
+                        }`}
                       >
-                        {court.name}
-                      </span>
-                      <span className="text-xs font-semibold text-[#888888] mt-1">
-                        Rp {Number(court.harga).toLocaleString("id-ID")}/jam
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                        <span
+                          className={`font-bold text-sm line-clamp-1 ${selectedCourt?.id === court.id ? "text-[#2FA084]" : "text-[#111111]"}`}
+                        >
+                          {court.name}
+                        </span>
+                        <span className="text-xs font-semibold text-[#888888] mt-1">
+                          Rp {Number(court.harga).toLocaleString("id-ID")}/jam
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 
@@ -461,7 +523,7 @@ export default function BookingModal({
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {dynamicTimeSlots.map((time, idx) => {
                   const isSelected = selectedTimes.includes(time);
-                  const isBooked   = false;   // TODO: integrasikan dengan API cek ketersediaan
+                  const isBooked   = Array.isArray(bookedSlots) ? bookedSlots.includes(time) : false;
                   const isPassed   = isTimePassed(selectedDate, time);
 
                   return (
