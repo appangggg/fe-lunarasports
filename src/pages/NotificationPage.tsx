@@ -1,49 +1,45 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell, CheckCircle2, Users, Tag, Info, Check, CheckCheck } from 'lucide-react';
+import { api } from '../services/api';
+
+interface AppNotification {
+  id: string | number;
+  type: string;
+  title: string;
+  message: string;
+  time: string;
+  isRead: boolean;
+  link: string;
+}
 
 export default function NotificationPage() {
   const [activeTab, setActiveTab] = useState<'semua' | 'belum_dibaca'>('semua');
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
-  // Data Dummy Notifikasi
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'success',
-      title: 'Pembayaran Berhasil! 🎉',
-      message: 'Hore! Pembayaran tiket untuk Gelora Futsal Arena (30 Mei) telah dikonfirmasi. Cek e-tiket Anda sekarang.',
-      time: 'Baru saja',
-      isRead: false,
-      link: '/history'
-    },
-    {
-      id: 2,
-      type: 'invite',
-      title: 'Undangan Mabar Futsal',
-      message: 'Nando mengundangmu untuk bergabung dalam tim "Fun Match" malam ini jam 19:00 WITA.',
-      time: '2 jam yang lalu',
-      isRead: false,
-      link: '/mabar'
-    },
-    {
-      id: 3,
-      type: 'promo',
-      title: 'Flash Sale Akhir Bulan! ⚡',
-      message: 'Diskon 30% untuk semua Sepatu Futsal di Lunara Store. Gunakan kode WEEKENDSERU saat checkout.',
-      time: 'Kemarin, 14:30',
-      isRead: true,
-      link: '/store'
-    },
-    {
-      id: 4,
-      type: 'info',
-      title: 'Perubahan Jadwal Maintenance',
-      message: 'Sistem akan mengalami pemeliharaan rutin pada tanggal 1 Juni jam 02:00 - 04:00 WITA.',
-      time: '28 Mei, 09:00',
-      isRead: true,
-      link: '#'
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
     }
-  ]);
+
+    const fetchNotifications = async () => {
+      try {
+        const res = await api.get('/notifications');
+        if (res.success) {
+          setNotifications(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchNotifications();
+  }, [navigate]);
 
   // Filter notifikasi berdasarkan tab
   const filteredNotifications = notifications.filter(notif => 
@@ -51,15 +47,29 @@ export default function NotificationPage() {
   );
 
   // Fungsi untuk menandai satu notifikasi sudah dibaca
-  const markAsRead = (id: number) => {
-    setNotifications(notifications.map(notif => 
-      notif.id === id ? { ...notif, isRead: true } : notif
-    ));
+  const markAsRead = async (id: string | number) => {
+    try {
+      const res = await api.put(`/notifications/${id}/read`, {});
+      if (res.success) {
+        setNotifications(notifications.map(notif => 
+          notif.id === id ? { ...notif, isRead: true } : notif
+        ));
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Fungsi untuk menandai semua notifikasi sudah dibaca
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
+  const markAllAsRead = async () => {
+    try {
+      const res = await api.put(`/notifications/read-all`, {});
+      if (res.success) {
+        setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Helper untuk menentukan Ikon berdasarkan tipe notifikasi
@@ -118,15 +128,19 @@ export default function NotificationPage() {
 
         {/* LIST NOTIFIKASI */}
         <div className="space-y-4 animate-fade-in">
-          {filteredNotifications.length > 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="w-8 h-8 border-4 border-[#2FA084] border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : filteredNotifications.length > 0 ? (
             filteredNotifications.map((notif) => (
               <div 
                 key={notif.id} 
-                onClick={() => markAsRead(notif.id)}
-                className={`p-5 rounded-2xl border transition-all cursor-pointer flex gap-4 items-start ${
+                onClick={() => !notif.isRead && markAsRead(notif.id)}
+                className={`p-5 rounded-2xl border transition-all flex gap-4 items-start ${
                   notif.isRead 
                   ? 'bg-white border-[#EEEEEE]' 
-                  : 'bg-[#F0FDF8] border-[#2FA084]/30 shadow-[0_4px_20px_rgba(47,160,132,0.08)]'
+                  : 'bg-[#F0FDF8] border-[#2FA084]/30 shadow-[0_4px_20px_rgba(47,160,132,0.08)] cursor-pointer'
                 }`}
               >
                 {getIcon(notif.type)}
@@ -142,7 +156,7 @@ export default function NotificationPage() {
                     {notif.message}
                   </p>
                   
-                  {notif.link !== '#' && (
+                  {notif.link && notif.link !== '#' && (
                     <Link 
                       to={notif.link}
                       className="inline-flex items-center gap-1.5 text-sm font-bold text-[#2FA084] hover:text-[#1F6F5F] transition-colors"
