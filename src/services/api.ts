@@ -12,7 +12,7 @@ const defaultConfig = () => ({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     // Otomatis pasang token jika ada
-    ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
+    ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
   }
 });
 
@@ -71,22 +71,20 @@ export const api = {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
-        ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
       },
       body: formData,
     });
     return handleResponse(response);
   },
 
-  // 3c. POST (sebagai PUT) FormData Request (Upload File)
-  // Laravel menerima file upload lewat metode POST dengan header _method=PUT atau parameter _method
+  // 3c. PUT FormData Request (Upload File)
+  // Laravel menerima upload file melalui POST dengan _method=PUT
   putForm: async (endpoint: string, formData: FormData) => {
-    // Karena HTML form / multipart tidak selalu ramah PUT di Laravel untuk file,
-    // Kita kirim via POST tapi body ada key _method = 'PUT' (Nanti di-handle saat memanggil)
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
-        ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
       },
       body: formData,
     });
@@ -102,7 +100,7 @@ export const api = {
     return handleResponse(response);
   },
 
-  // 5. PATCH Request (Partial update)
+  // 5. PATCH Request (Partial Update)
   patch: async (endpoint: string, data?: unknown) => {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'PATCH',

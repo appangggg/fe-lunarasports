@@ -4,23 +4,66 @@ import { Calendar, MapPin, Star, Users, ShoppingBag, ArrowRight, Trophy, Flame, 
 
 export default function HomePage() {
   const [firstName, setFirstName] = useState('Sobat Olahraga');
+  const [user, setUser] = useState<any>(null);
+  const [popularVenues, setPopularVenues] = useState<any[]>([]);
+  const [vouchers, setVouchers] = useState<any[]>([]);
 
   // Mengambil nama user dari LocalStorage untuk sapaan personal
   useEffect(() => {
     const userStorage = localStorage.getItem('user');
     if (userStorage) {
-      const user = JSON.parse(userStorage);
-      // Ambil kata pertama dari nama lengkap
-      setFirstName(user.name.split(' ')[0]); 
+      try {
+        const parsedUser = JSON.parse(userStorage);
+        setUser(parsedUser);
+        setFirstName(parsedUser.name.split(' ')[0]); 
+      } catch (e) {
+        console.error("Gagal parse user data", e);
+      }
     }
-  }, []);
 
-  // Data Dummy Lapangan Populer
-  const popularVenues = [
-    { id: 1, name: 'Gelora Futsal Arena', category: 'Futsal', location: 'Samata, Gowa', price: '150.000', rating: 4.8, image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop' },
-    { id: 2, name: 'GOR Cempaka Putih', category: 'Badminton', location: 'Makassar', price: '80.000', rating: 4.9, image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=1470&auto=format&fit=crop' },
-    { id: 3, name: 'Minisoccer UINAM', category: 'Mini Soccer', location: 'Samata, Gowa', price: '250.000', rating: 4.7, image: 'https://images.unsplash.com/photo-1518605368461-1ee7c5320d2e?q=80&w=1470&auto=format&fit=crop' }
-  ];
+    // Ambil data profil terbaru dari API agar active_tickets sinkron
+    import('../services/api').then(({ api }) => {
+      api.get('/user/profile').then(res => {
+        if (res.success) {
+          setUser(res.data);
+          localStorage.setItem('user', JSON.stringify(res.data));
+        }
+      }).catch(err => console.error("Gagal memuat profil terbaru", err));
+      
+      // Ambil data lapangan populer
+      api.get('/venues').then(res => {
+        if (res.success) {
+          // Format data agar sesuai properti komponen (harga, dll)
+          const formattedVenues = res.data.slice(0, 3).map((item: any) => {
+            let minPrice = item.harga_mulai || 0;
+            if (item.courts && item.courts.length > 0) {
+              const courtPrices = item.courts.map((c: any) => Number(c.harga)).filter((p: number) => !isNaN(p) && p > 0);
+              if (courtPrices.length > 0) {
+                minPrice = Math.min(...courtPrices);
+              }
+            }
+            return {
+              id: item.id,
+              name: item.name,
+              category: item.kategori || item.courts?.[0]?.type || 'Olahraga',
+              location: item.lokasi || 'Lokasi',
+              price: minPrice.toLocaleString('id-ID'),
+              rating: item.rating > 0 ? item.rating : 4.8,
+              image: item.image || item.courts?.[0]?.image || 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop'
+            };
+          });
+          setPopularVenues(formattedVenues);
+        }
+      }).catch(err => console.error("Gagal memuat lapangan populer", err));
+
+      api.get('/vouchers/public').then(res => {
+        if (res.success && res.data.length > 0) {
+          setVouchers(res.data);
+        }
+      }).catch(err => console.error("Gagal memuat voucher", err));
+    });
+
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F8F8F8] pt-24 pb-24 font-sans">
@@ -45,33 +88,35 @@ export default function HomePage() {
         {/* ========================================= */}
         {/* UPCOMING MATCH (Jadwal Terdekat) */}
         {/* ========================================= */}
-        <div className="bg-gradient-to-r from-[#2FA084] to-[#1F6F5F] rounded-3xl p-6 sm:p-8 text-white shadow-lg mb-8 relative overflow-hidden animate-fade-in">
-          {/* Ornamen Background */}
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-          <div className="absolute right-10 bottom-0 w-24 h-24 bg-[#111111]/10 rounded-full blur-xl"></div>
-          
-          <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-            <div>
-              <div className="flex items-center gap-2 bg-white/20 w-max px-3 py-1.5 rounded-lg backdrop-blur-md mb-4 border border-white/20">
-                <Flame className="w-4 h-4 text-orange-300" />
-                <span className="text-xs font-bold uppercase tracking-wider">Mabar Hari Ini</span>
-              </div>
-              <h2 className="text-2xl font-black mb-1">Futsal Fun Match</h2>
-              <p className="text-white/80 text-sm flex items-center gap-2 mb-2">
-                <MapPin className="w-4 h-4" /> Gelora Futsal Arena - Lap. A
-              </p>
-              <div className="flex gap-4 text-sm font-bold bg-black/20 w-max px-4 py-2 rounded-xl border border-white/10">
-                <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4 text-[#6FCF97]" /> 30 Mei 2026</span>
-                <div className="w-px h-5 bg-white/30"></div>
-                <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-[#6FCF97]" /> 19:00 WITA</span>
-              </div>
-            </div>
+        {user?.active_tickets && user.active_tickets.length > 0 && (
+          <div className="bg-gradient-to-r from-[#2FA084] to-[#1F6F5F] rounded-3xl p-6 sm:p-8 text-white shadow-lg mb-8 relative overflow-hidden animate-fade-in">
+            {/* Ornamen Background */}
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+            <div className="absolute right-10 bottom-0 w-24 h-24 bg-[#111111]/10 rounded-full blur-xl"></div>
             
-            <Link to="/history" className="w-full sm:w-auto bg-white text-[#111111] font-bold px-6 py-3.5 rounded-xl hover:bg-[#F8F8F8] transition-all flex justify-center items-center gap-2 shadow-md hover:shadow-xl transform hover:-translate-y-1">
-              Lihat Tiket <ArrowRight className="w-4 h-4" />
-            </Link>
+            <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+              <div>
+                <div className="flex items-center gap-2 bg-white/20 w-max px-3 py-1.5 rounded-lg backdrop-blur-md mb-4 border border-white/20">
+                  <Flame className="w-4 h-4 text-orange-300" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Jadwal Terdekat</span>
+                </div>
+                <h2 className="text-2xl font-black mb-1">{user.active_tickets[0].court?.venue?.name || 'Gelora Futsal Arena'} - Lap. {user.active_tickets[0].court?.name || 'A'}</h2>
+                <p className="text-white/80 text-sm flex items-center gap-2 mb-2">
+                  <MapPin className="w-4 h-4" /> {user.active_tickets[0].court?.venue?.lokasi || 'Jl. Sultan Hasanuddin, Gowa'}
+                </p>
+                <div className="flex gap-4 text-sm font-bold bg-black/20 w-max px-4 py-2 rounded-xl border border-white/10">
+                  <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4 text-[#6FCF97]" /> {user.active_tickets[0].booking_date}</span>
+                  <div className="w-px h-5 bg-white/30"></div>
+                  <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-[#6FCF97]" /> {(typeof user.active_tickets[0].time_slots === 'string' ? JSON.parse(user.active_tickets[0].time_slots) : user.active_tickets[0].time_slots)[0]} WITA</span>
+                </div>
+              </div>
+              
+              <Link to="/profile" className="w-full sm:w-auto bg-white text-[#111111] font-bold px-6 py-3.5 rounded-xl hover:bg-[#F8F8F8] transition-all flex justify-center items-center gap-2 shadow-md hover:shadow-xl transform hover:-translate-y-1">
+                Lihat Tiket <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ========================================= */}
         {/* QUICK MENUS (Navigasi Cepat) */}
@@ -111,14 +156,24 @@ export default function HomePage() {
         {/* ========================================= */}
         {/* PROMO BANNER */}
         {/* ========================================= */}
-        <div className="bg-[#111111] rounded-3xl p-6 sm:p-8 flex items-center justify-between shadow-lg mb-12 animate-fade-in" style={{ animationDelay: '200ms' }}>
-          <div className="max-w-xs">
-            <span className="bg-[#D4AF37] text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded mb-3 inline-block">Flash Sale</span>
-            <h3 className="text-xl font-bold text-white mb-2 leading-tight">Diskon 30% Booking Futsal Akhir Pekan!</h3>
-            <p className="text-[#888888] text-xs">Gunakan kode: <span className="text-[#2FA084] font-bold">WEEKENDSERU</span></p>
+        {vouchers.length > 0 ? (
+          <div className="bg-[#111111] rounded-3xl p-6 sm:p-8 flex items-center justify-between shadow-lg mb-12 animate-fade-in" style={{ animationDelay: '200ms' }}>
+            <div className="max-w-xs">
+              <span className="bg-[#D4AF37] text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded mb-3 inline-block">Flash Sale</span>
+              <h3 className="text-xl font-bold text-white mb-2 leading-tight">Diskon {vouchers[0].discount_type === 'percent' ? vouchers[0].discount_value + '%' : 'Rp ' + vouchers[0].discount_value.toLocaleString('id-ID')} Booking Futsal!</h3>
+              <p className="text-[#888888] text-xs">Gunakan kode: <span className="text-[#2FA084] font-bold">{vouchers[0].code}</span></p>
+            </div>
+            <img src="https://ui-avatars.com/api/?name=%25&background=2FA084&color=fff&size=80&rounded=true" alt="Promo" className="w-16 h-16 sm:w-20 sm:h-20 animate-pulse" />
           </div>
-          <img src="https://ui-avatars.com/api/?name=%25&background=2FA084&color=fff&size=80&rounded=true" alt="Promo" className="w-16 h-16 sm:w-20 sm:h-20 animate-pulse" />
-        </div>
+        ) : (
+          <div className="bg-[#111111] rounded-3xl p-6 sm:p-8 flex items-center justify-between shadow-lg mb-12 animate-fade-in" style={{ animationDelay: '200ms' }}>
+            <div className="max-w-xs">
+              <span className="bg-[#D4AF37] text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded mb-3 inline-block">Promo Spesial</span>
+              <h3 className="text-xl font-bold text-white mb-2 leading-tight">Tunggu promo menarik dari Lunara Sports!</h3>
+              <p className="text-[#888888] text-xs">Akan segera hadir.</p>
+            </div>
+          </div>
+        )}
 
         {/* ========================================= */}
         {/* REKOMENDASI LAPANGAN (Popular Venues) */}
