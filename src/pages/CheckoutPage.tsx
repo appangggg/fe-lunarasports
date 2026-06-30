@@ -87,8 +87,17 @@ export default function CheckoutPage() {
         
         // PANGGIL POPUP MIDTRANS
         window.snap.pay(result.snap_token, {
-          onSuccess: function(result: any){
+          onSuccess: async function(result: any){
             console.log('Pembayaran Sukses:', result);
+            // Ekstrak booking ID dari order_id, misal LNR-LUNARASPORTS-29 -> 29 atau LNR-10 -> 10
+            const parts = result.order_id.split('-');
+            const bookingId = parts[parts.length - 1];
+            try {
+              // Otomatis sinkronkan status ke Lunas agar midtrans simulator langsung terasa efeknya
+              await api.post(`/bookings/${bookingId}/sync-status`, {});
+            } catch (e) {
+              console.error('Gagal sync status otomatis', e);
+            }
             alert('Pembayaran Berhasil! Tiket Anda telah diterbitkan.');
             localStorage.removeItem('pending_booking'); 
             navigate('/history'); 
@@ -130,16 +139,16 @@ export default function CheckoutPage() {
         code: voucherCode,
         subtotal: eligibleSubtotal
       });
-      if (res.data.success && res.data.data) {
+      if (res.success && res.data) {
         setDiscountInfo({
-          code: res.data.data.code,
-          amount: res.data.data.discount,
-          type: res.data.data.type
+          code: res.data.code,
+          amount: res.data.discount,
+          type: res.data.type
         });
         alert('Voucher berhasil digunakan!');
       }
     } catch (e: any) {
-      alert(e.response?.data?.message || 'Gagal menggunakan voucher');
+      alert(e.message || 'Gagal menggunakan voucher');
       setDiscountInfo(null);
     } finally {
       setIsApplyingVoucher(false);

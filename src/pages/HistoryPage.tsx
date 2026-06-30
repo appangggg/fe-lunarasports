@@ -12,6 +12,12 @@ export default function HistoryPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [selectedQR, setSelectedQR] = useState<any>(null);
+  
+  // State Review
+  const [reviewBooking, setReviewBooking] = useState<any>(null);
+  const [rating, setRating] = useState<number>(5);
+  const [comment, setComment] = useState<string>('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // 2. UBAH BOOKING HISTORY JADI STATE
   const [bookingHistory, setBookingHistory] = useState<any[]>([]);
@@ -29,10 +35,13 @@ export default function HistoryPage() {
               let uiStatus = 'aktif';
               if (item.status === 'cancelled' || item.status === 'expire' || item.status === 'deny') uiStatus = 'batal';
               if (item.status === 'completed') uiStatus = 'selesai';
-              
               return {
                 id: `LNR-${item.id}`,
                 status: uiStatus,
+                real_status: item.status, // simpan status asli
+                is_reviewed: item.is_reviewed,
+                venue_id: item.venue_id,
+                real_id: item.id,
                 venue: item.court?.name || 'Lapangan',
                 sport: item.court?.type === 'futsal' ? 'Futsal' : 'Badminton',
                 date: item.booking_date,
@@ -78,6 +87,36 @@ export default function HistoryPage() {
   const handleBookingLagi = () => {
     navigate('/booking'); 
   };
+  
+  const handleSubmitReview = async () => {
+    if (!reviewBooking) return;
+    setIsSubmittingReview(true);
+    try {
+      const response = await api.post('/reviews', {
+        booking_id: reviewBooking.real_id,
+        venue_id: reviewBooking.venue_id,
+        rating,
+        comment
+      });
+      if (response.success) {
+        // Update local state to mark as reviewed
+        setBookingHistory(prev => prev.map(item => 
+          item.real_id === reviewBooking.real_id ? { ...item, is_reviewed: true } : item
+        ));
+        setReviewBooking(null);
+        setRating(5);
+        setComment('');
+        alert('Terima kasih atas ulasan Anda!');
+      } else {
+        alert(response.message || 'Gagal mengirim ulasan');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Terjadi kesalahan');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
   // KOMPONEN SKELETON
   const SkeletonCard = () => (
     <div className="bg-white rounded-2xl border border-[#EEEEEE] p-5 flex flex-col sm:flex-row gap-5 shadow-sm">
@@ -190,19 +229,35 @@ export default function HistoryPage() {
                       
                       {/* LOGIKA TOMBOL BERDASARKAN STATUS */}
                       {item.status === 'aktif' ? (
-                        <button 
-                          onClick={() => setSelectedQR(item)} // Membuka Modal QR dengan data spesifik
-                          className="w-full flex items-center justify-center gap-2 bg-[#111111] text-white px-4 py-3 rounded-xl text-xs font-bold hover:bg-[#2FA084] transition-colors shadow-md group-hover:-translate-y-0.5"
-                        >
-                          <QrCode className="w-4 h-4" /> Tampilkan QR
-                        </button>
+                        item.real_status === 'pending' ? (
+                          <div className="w-full flex items-center justify-center gap-2 bg-orange-50 text-orange-600 border border-orange-200 px-4 py-3 rounded-xl text-xs font-bold shadow-sm">
+                            Menunggu Pembayaran
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => setSelectedQR(item)} // Membuka Modal QR dengan data spesifik
+                            className="w-full flex items-center justify-center gap-2 bg-[#111111] text-white px-4 py-3 rounded-xl text-xs font-bold hover:bg-[#2FA084] transition-colors shadow-md group-hover:-translate-y-0.5"
+                          >
+                            <QrCode className="w-4 h-4" /> Tampilkan QR
+                          </button>
+                        )
                       ) : item.status === 'selesai' ? (
-                        <button 
-                          onClick={handleBookingLagi} // Navigasi ke halaman booking
-                          className="w-full flex items-center justify-center gap-2 bg-white text-[#111111] border border-[#CCCCCC] px-4 py-3 rounded-xl text-xs font-bold hover:bg-[#F8F8F8] hover:border-[#111111] transition-colors shadow-sm"
-                        >
-                          Booking Lagi
-                        </button>
+                        <div className="w-full flex flex-col gap-2">
+                          {!item.is_reviewed && (
+                            <button 
+                              onClick={() => setReviewBooking(item)}
+                              className="w-full flex items-center justify-center gap-2 bg-[#2FA084] text-white px-4 py-3 rounded-xl text-xs font-bold hover:bg-[#1F6F5F] transition-colors shadow-sm"
+                            >
+                              ⭐ Beri Ulasan
+                            </button>
+                          )}
+                          <button 
+                            onClick={handleBookingLagi}
+                            className="w-full flex items-center justify-center gap-2 bg-white text-[#111111] border border-[#CCCCCC] px-4 py-3 rounded-xl text-xs font-bold hover:bg-[#F8F8F8] hover:border-[#111111] transition-colors shadow-sm"
+                          >
+                            Booking Lagi
+                          </button>
+                        </div>
                       ) : (
                         <div className="w-full flex items-center justify-center gap-1.5 bg-red-50 text-red-600 px-4 py-2.5 rounded-xl text-xs font-bold border border-red-100">
                           <XCircle className="w-4 h-4" /> Dibatalkan
@@ -321,6 +376,61 @@ export default function HistoryPage() {
               </p>
             </div>
             
+          </div>
+        </div>
+      )}
+
+      {/* ========================================= */}
+      {/* MODAL REVIEW TIKET */}
+      {/* ========================================= */}
+      {reviewBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative transform transition-all animate-fade-in">
+            <div className="bg-[#111111] p-5 text-center relative">
+              <button 
+                onClick={() => setReviewBooking(null)} 
+                className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <h3 className="text-white font-bold text-lg">Beri Ulasan Venue</h3>
+              <p className="text-white/80 text-xs mt-0.5">{reviewBooking.venue}</p>
+            </div>
+            
+            <div className="p-8 flex flex-col items-center">
+              <p className="text-[#111111] font-bold mb-4">Seberapa puas kamu bermain di sini?</p>
+              <div className="flex gap-2 mb-6">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button 
+                    key={star}
+                    onClick={() => setRating(star)}
+                    className="transition-transform hover:scale-110 focus:outline-none"
+                  >
+                    <svg className={`w-10 h-10 ${star <= rating ? 'text-[#F2C94C] fill-[#F2C94C]' : 'text-gray-300'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                  </button>
+                ))}
+              </div>
+
+              <div className="w-full mb-6">
+                <label className="block text-sm font-bold text-[#111111] mb-2">Komentar Tambahan (Opsional)</label>
+                <textarea 
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  className="w-full bg-[#F8F8F8] border border-[#EEEEEE] rounded-xl p-3 text-sm focus:outline-none focus:border-[#2FA084] min-h-[100px]"
+                  placeholder="Ceritakan pengalaman bermainmu..."
+                ></textarea>
+              </div>
+
+              <button 
+                onClick={handleSubmitReview}
+                disabled={isSubmittingReview}
+                className="w-full bg-[#2FA084] text-white font-bold py-3.5 rounded-xl hover:bg-[#1F6F5F] transition-all disabled:opacity-50"
+              >
+                {isSubmittingReview ? 'Mengirim...' : 'Kirim Ulasan'}
+              </button>
+            </div>
           </div>
         </div>
       )}
