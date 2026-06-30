@@ -49,7 +49,7 @@ export default function NotificationPage() {
   // Fungsi untuk menandai satu notifikasi sudah dibaca
   const markAsRead = async (id: string | number) => {
     try {
-      const res = await api.put(`/notifications/${id}/read`, {});
+      const res = await api.post(`/notifications/${id}/read`, {});
       if (res.success) {
         setNotifications(notifications.map(notif => 
           notif.id === id ? { ...notif, isRead: true } : notif
@@ -63,7 +63,7 @@ export default function NotificationPage() {
   // Fungsi untuk menandai semua notifikasi sudah dibaca
   const markAllAsRead = async () => {
     try {
-      const res = await api.put(`/notifications/read-all`, {});
+      const res = await api.post(`/notifications/read-all`, {});
       if (res.success) {
         setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
       }
@@ -99,7 +99,7 @@ export default function NotificationPage() {
             </h1>
           </div>
           
-          <button 
+          <button type="button" 
             onClick={markAllAsRead}
             disabled={unreadCount === 0}
             className="hidden sm:flex items-center gap-2 text-sm font-bold text-[#2FA084] hover:text-[#1F6F5F] disabled:text-[#CCCCCC] transition-colors"
@@ -110,14 +110,14 @@ export default function NotificationPage() {
 
         {/* TABS */}
         <div className="flex gap-4 mb-6 border-b border-[#EEEEEE]">
-          <button 
+          <button type="button" 
             onClick={() => setActiveTab('semua')}
             className={`pb-4 text-sm font-bold transition-all relative ${activeTab === 'semua' ? 'text-[#111111]' : 'text-[#888888] hover:text-[#444444]'}`}
           >
             Semua
             {activeTab === 'semua' && <div className="absolute bottom-0 left-0 w-full h-1 bg-[#2FA084] rounded-t-full"></div>}
           </button>
-          <button 
+          <button type="button" 
             onClick={() => setActiveTab('belum_dibaca')}
             className={`pb-4 text-sm font-bold transition-all relative ${activeTab === 'belum_dibaca' ? 'text-[#111111]' : 'text-[#888888] hover:text-[#444444]'}`}
           >
