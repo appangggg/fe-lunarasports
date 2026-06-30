@@ -228,7 +228,7 @@ export default function CheckoutPage() {
             <div className="bg-white p-6 md:p-8 rounded-2xl border border-[#EEEEEE] shadow-sm">
               <h2 className="text-lg font-bold text-[#111111] mb-4">Pilih Metode Pembayaran</h2>
               <div className="space-y-3">
-                <button onClick={() => setSelectedPayment('qris')} className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${selectedPayment === 'qris' ? 'border-[#2FA084] bg-[#F0FDF8] ring-1 ring-[#2FA084]' : 'border-[#EEEEEE] bg-white hover:border-[#CCCCCC]'}`}>
+                <button type="button" onClick={() => setSelectedPayment('qris')} className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${selectedPayment === 'qris' ? 'border-[#2FA084] bg-[#F0FDF8] ring-1 ring-[#2FA084]' : 'border-[#EEEEEE] bg-white hover:border-[#CCCCCC]'}`}>
                   <div className="flex items-center gap-4">
                     <div className={`p-2.5 rounded-lg ${selectedPayment === 'qris' ? 'bg-[#2FA084] text-white' : 'bg-[#F8F8F8] text-[#888888]'}`}><QrCode className="w-5 h-5" /></div>
                     <div className="text-left">
@@ -274,7 +274,7 @@ export default function CheckoutPage() {
                       <CheckCircle2 className="w-5 h-5 text-[#2FA084]" />
                       <span className="font-bold text-[#2FA084]">{discountInfo.code}</span>
                     </div>
-                    <button onClick={handleRemoveVoucher} className="text-xs text-red-500 font-bold hover:underline">Hapus</button>
+                    <button type="button" onClick={handleRemoveVoucher} className="text-xs text-red-500 font-bold hover:underline">Hapus</button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
@@ -285,7 +285,7 @@ export default function CheckoutPage() {
                       onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
                       className="flex-1 p-3 bg-white border border-[#EEEEEE] rounded-xl text-sm font-bold focus:outline-none focus:border-[#2FA084] uppercase"
                     />
-                    <button 
+                    <button type="button" 
                       onClick={handleApplyVoucher}
                       disabled={isApplyingVoucher || !voucherCode.trim()}
                       className="bg-[#111111] hover:bg-[#2FA084] disabled:bg-[#CCCCCC] text-white px-4 py-3 rounded-xl text-sm font-bold transition-colors"
@@ -303,7 +303,7 @@ export default function CheckoutPage() {
                 <span className="text-2xl font-extrabold text-[#2FA084]">Rp {totalPayment.toLocaleString('id-ID')}</span>
               </div>
 
-              <button 
+              <button type="button" 
                 onClick={handleCheckout}
                 disabled={isProcessing}
                 className="w-full bg-[#111111] hover:bg-[#2FA084] disabled:bg-[#CCCCCC] disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all duration-300 shadow-xl flex items-center justify-center gap-2"
